@@ -2,7 +2,7 @@
 # Customizations on top of Bazzite DX: the Hyprland desktop stack.
 set -ouex pipefail
 
-# Files from system_files/ (signature policy key and registry config)
+# Files from system_files/ (signature policy key, registry config, core dump limit)
 cp -avf "/ctx/system_files"/. /
 
 ### Hyprland desktop

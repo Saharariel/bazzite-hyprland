@@ -23,6 +23,9 @@ See [`build_files/build.sh`](build_files/build.sh):
   switch workspaces on click with Hyprland 0.57's Lua IPC)
 - Signature policy that only trusts this image when signed with
   [`cosign.pub`](cosign.pub)
+- A 1G soft cap on core dumps in the user session
+  ([`50-core-limit.conf`](system_files/usr/lib/systemd/user.conf.d/50-core-limit.conf)),
+  so a crash can never leave huge `core.<pid>` files in `$HOME`
 
 The COPRs are enabled only during the build; the image ships no extra repos.
 
