@@ -45,12 +45,16 @@ fails, GitHub emails the repo owner and the PC stays on the last good image.
 From a Bazzite install:
 
 ```bash
-rpm-ostree reset                                   # drop local layers/overrides
-sudo bootc switch ghcr.io/saharariel/bazzite-hyprland:latest
+sudo rpm-ostree reset      # drop local layers and overrides
+sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/saharariel/bazzite-hyprland:latest
 systemctl reboot
-# after the first boot, the image's signature policy is installed:
-sudo bootc switch --enforce-container-sigpolicy ghcr.io/saharariel/bazzite-hyprland:latest
+# after the first boot the image's signature policy is installed, so switch
+# to the verified transport (same image, no second reboot needed):
+sudo rpm-ostree rebase ostree-image-signed:docker://ghcr.io/saharariel/bazzite-hyprland:latest
 ```
+
+`rpm-ostree rebase` is used rather than `bootc switch`, which refuses to run while the
+current deployment still has layered packages.
 
 Then clone the dotfiles and run `./install.sh`.
 
