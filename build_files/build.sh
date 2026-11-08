@@ -1,27 +1,59 @@
 #!/bin/bash
-
+# Customizations on top of Bazzite DX: the Hyprland desktop stack.
 set -ouex pipefail
 
-# Copy the contents of system_files/ of the git repo to /
+# Files from system_files/ (signature policy key and registry config)
 cp -avf "/ctx/system_files"/. /
 
-### Install packages
+### Hyprland desktop
+# Hyprland ecosystem (hyprland, uwsm, hypr* tools, portal) comes from the
+# lionheartp/Hyprland COPR, swayosd from erikreider/swayosd. The COPRs are
+# only enabled for this build, so the final image ships no extra repos.
+# Hyprland requires Fedora's xorg-x11-server-Xwayland, which conflicts with
+# Bazzite's pre-release terra-xorg-x11-server-Xwayland. Swap it first.
+dnf5 -y swap terra-xorg-x11-server-Xwayland xorg-x11-server-Xwayland
 
-# Packages can be installed from any enabled yum repo on the image.
-# RPMfusion repos are available by default in ublue main images
-# List of rpmfusion packages can be found here:
-# https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/43/x86_64/repoview/index.html&protocol=https&redirect=1
+COPRS=(lionheartp/Hyprland erikreider/swayosd)
+for copr in "${COPRS[@]}"; do dnf5 -y copr enable "$copr"; done
 
-# this installs a package from fedora repos
-dnf5 install -y tmux
+dnf5 -y install \
+    hyprland \
+    hyprland-uwsm \
+    uwsm \
+    hypridle \
+    hyprlock \
+    hyprpaper \
+    hyprpicker \
+    xdg-desktop-portal-hyprland \
+    waybar \
+    swayosd \
+    dunst \
+    grim \
+    slurp
 
-# Use a COPR Example:
-#
-# dnf5 -y copr enable ublue-os/staging
-# dnf5 -y install package
-# Disable COPRs so they don't end up enabled on the final image:
-# dnf5 -y copr disable ublue-os/staging
+for copr in "${COPRS[@]}"; do dnf5 -y copr disable "$copr"; done
 
-#### Example for enabling a System Unit File
+### Image signature verification
+# Trust only images from ghcr.io/saharariel/bazzite-hyprland that are signed
+# with this repo's cosign key (system_files/etc/pki/containers/saharariel.pub).
+POLICY=/etc/containers/policy.json
+jq '.transports.docker["ghcr.io/saharariel/bazzite-hyprland"] = [{
+        "type": "sigstoreSigned",
+        "keyPath": "/etc/pki/containers/saharariel.pub",
+        "signedIdentity": {"type": "matchRepository"}
+    }]' "$POLICY" > /tmp/policy.json
+mv /tmp/policy.json "$POLICY"
 
-systemctl enable podman.socket
+### Sanity checks: fail the build rather than ship a broken desktop
+rpm -q hyprland hyprland-uwsm uwsm hypridle hyprlock hyprpaper hyprpicker \
+    xdg-desktop-portal-hyprland waybar swayosd dunst grim slurp \
+    xorg-x11-server-Xwayland
+if rpm -q terra-xorg-x11-server-Xwayland; then
+    echo "terra Xwayland is still installed" >&2; exit 1
+fi
+test -f /usr/share/wayland-sessions/hyprland-uwsm.desktop
+for repo in /etc/yum.repos.d/*lionheartp* /etc/yum.repos.d/*erikreider*; do
+    if [[ -e "$repo" ]] && grep -q '^enabled=1' "$repo"; then
+        echo "COPR repo left enabled: $repo" >&2; exit 1
+    fi
+done

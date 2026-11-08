@@ -8,6 +8,8 @@ export image_keywords := env_var("IMAGE_KEYWORDS")
 export image_logo_url := env_var("IMAGE_LOGO_URL")
 export default_tag := env_var("DEFAULT_TAG")
 export bib_image := env_var("BIB_IMAGE")
+export base_image := env_var("BASE_IMAGE")
+export base_digest_label := env_var("BASE_DIGEST_LABEL")
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
@@ -98,8 +100,14 @@ build $target_image=image_name $tag=default_tag:
 
     set -euox pipefail
 
-    BUILD_ARGS=()
-    LABELS=()
+    # Pin the base to the exact digest being built on, and record it, so the
+    # scheduled workflow can compare it with what Bazzite currently publishes.
+    BASE_DIGEST=$(skopeo inspect --no-tags --format '{{ '{{.Digest}}' }}' "docker://{{ base_image }}")
+    BASE_REF="{{ base_image }}"
+    BASE_REF="${BASE_REF%:*}@${BASE_DIGEST}"
+
+    BUILD_ARGS=("--build-arg" "BASE_IMAGE=${BASE_REF}")
+    LABELS=("--label" "{{ base_digest_label }}=${BASE_DIGEST}")
     if [[ -z "$(git status -s)" ]]; then
         GIT_SHA=$(git rev-parse --short HEAD)
         LABELS+=("--label" "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/{{ repo_organization }}/{{ image_name }}/${GIT_SHA}/README.md")
