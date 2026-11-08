@@ -19,6 +19,8 @@ See [`build_files/build.sh`](build_files/build.sh):
 - `swayosd` from the `erikreider/swayosd` COPR
 - `waybar`, `dunst`, `grim`, `slurp` from Fedora
 - Fedora's `xorg-x11-server-Xwayland` instead of Bazzite's pre-release terra build
+- `waybar` 0.16 from Fedora updates-testing until it reaches stable (0.15 can't
+  switch workspaces on click with Hyprland 0.57's Lua IPC)
 - Signature policy that only trusts this image when signed with
   [`cosign.pub`](cosign.pub)
 

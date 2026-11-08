@@ -33,6 +33,15 @@ dnf5 -y install \
 
 for copr in "${COPRS[@]}"; do dnf5 -y copr disable "$copr"; done
 
+# Waybar < 0.16 sends hyprlang-style dispatches ("workspace 2"), which Hyprland
+# 0.57's Lua IPC rejects, so clicking workspaces does nothing. 0.16.0 has the fix
+# (Alexays/Waybar#5013) but is still in updates-testing for F45. Take only
+# waybar from there; drop this once 0.16 reaches stable.
+if ! rpm -q --qf '%{VERSION}\n' waybar | awk -F. '{exit !($1 > 0 || $2 >= 16)}'; then
+    dnf5 -y --enablerepo=updates-testing upgrade waybar
+fi
+rpm -q --qf '%{VERSION}\n' waybar | awk -F. '{exit !($1 > 0 || $2 >= 16)}'
+
 ### Image signature verification
 # Trust only images from ghcr.io/saharariel/bazzite-hyprland that are signed
 # with this repo's cosign key (system_files/etc/pki/containers/saharariel.pub).
