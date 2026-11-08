@@ -181,28 +181,30 @@ ostree-rechunk $target_image=image_name $tag=default_tag:
 
     GRAPHROOT="$(podman info --format '{{ '{{.Store.GraphRoot}}' }}')"
 
-    # --from (as bazzite-dx does) keeps the built image's config and labels,
-    # including the base-digest label the scheduled check relies on.
-    # --rootfs would write a fresh config and drop every label.
-    # Mount the (possibly rootless) image store at the same path inside the
-    # chunker container, and point containers-storage at it.
-    STORAGE_CONF="$(mktemp)"
-    trap 'rm -f "${STORAGE_CONF}"' EXIT
-    printf '[storage]\ndriver = "overlay"\ngraphroot = "%s"\nrunroot = "/run/chunker-storage"\n' \
-        "${GRAPHROOT}" > "${STORAGE_CONF}"
+    # build-chunked-oci --rootfs writes a fresh image config, so carry over
+    # the labels from the build (base-digest, OCI metadata) explicitly. Skip
+    # ostree/bootc internals, which the chunker sets itself.
+    LABEL_ARGS=()
+    while IFS= read -r kv; do
+        LABEL_ARGS+=("--label" "${kv}")
+    done < <(podman image inspect "localhost/${target_image}:${tag}" \
+        | jq -r '.[0].Labels // {} | to_entries[]
+                 | select(.key | test("^(ostree\\.|containers\\.bootc$)") | not)
+                 | "\(.key)=\(.value)"')
 
     podman run --rm --pull=never --privileged \
-      --mount=type=bind,src=${GRAPHROOT},target=${GRAPHROOT},rw \
-      --mount=type=bind,src=${STORAGE_CONF},target=/etc/containers/storage.conf,ro \
-      --mount=type=tmpfs,target=/run/chunker-storage \
+      --mount=type=image,src="${target_image}:${tag}",target=/rpm-ostree \
+      --mount=type=bind,src=${GRAPHROOT},target=/run/host-container-storage,rw \
+      --mount=type=tmpfs,target=/run/rpm-ostree-storage \
       --entrypoint /usr/bin/rpm-ostree \
       "${RPM_OSTREE_CHUNKER_IMAGE}" \
       compose build-chunked-oci \
       --max-layers 127 \
       --format-version=2 \
       --bootc \
-      --from "localhost/${target_image}:${tag}" \
-      --output "containers-storage:localhost/${target_image}:${tag}"
+      --rootfs /rpm-ostree \
+      "${LABEL_ARGS[@]}" \
+      --output "containers-storage:[overlay@/run/host-container-storage+/run/rpm-ostree-storage]localhost/${target_image}:${tag}"
 
 # Generate Default Tag
 [group('Utility')]
