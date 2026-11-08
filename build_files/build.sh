@@ -16,6 +16,8 @@ dnf5 -y swap terra-xorg-x11-server-Xwayland xorg-x11-server-Xwayland
 COPRS=(lionheartp/Hyprland erikreider/swayosd)
 for copr in "${COPRS[@]}"; do dnf5 -y copr enable "$copr"; done
 
+# Bazzite sets install_weak_deps=False, so packages Hyprland only recommends
+# (unlike with rpm-ostree layering) are not pulled in. List what is used.
 dnf5 -y install \
     hyprland \
     hyprland-uwsm \
@@ -29,7 +31,8 @@ dnf5 -y install \
     swayosd \
     dunst \
     grim \
-    slurp
+    slurp \
+    kitty
 
 for copr in "${COPRS[@]}"; do dnf5 -y copr disable "$copr"; done
 
@@ -55,7 +58,7 @@ mv /tmp/policy.json "$POLICY"
 
 ### Sanity checks: fail the build rather than ship a broken desktop
 rpm -q hyprland hyprland-uwsm uwsm hypridle hyprlock hyprpaper hyprpicker \
-    xdg-desktop-portal-hyprland waybar swayosd dunst grim slurp \
+    xdg-desktop-portal-hyprland waybar swayosd dunst grim slurp kitty \
     xorg-x11-server-Xwayland
 if rpm -q terra-xorg-x11-server-Xwayland; then
     echo "terra Xwayland is still installed" >&2; exit 1
